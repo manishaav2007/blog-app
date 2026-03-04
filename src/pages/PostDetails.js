@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { posts } from '../data';
 import './PostDetails.css';
 
+
 const PostDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();

@@ -1,9 +1,11 @@
+import { useNavigate } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import BlogCard from '../components/BlogCard';
 import { useAuth } from '../context/AuthContext';
 import { categories as defaultCategories, posts as defaultPosts } from '../data';
 import './Home.css';
+
 
 const Home = () => {
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -197,7 +199,7 @@ const Home = () => {
                 className="btn btn-primary"
                 onClick={() => {
                   setSearchQuery('');
-                  window.history.pushState({}, '', '/');
+                 window.history.pushState({}, '', '/#/');
                 }}
               >
                 Clear Search
