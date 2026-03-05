@@ -1,0 +1,275 @@
+
+
+
+
+
+
+.blog-card {
+  background: white;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  animation: fadeInUp 0.8s ease-out;  /* ← Add this line for entrance animation */
+}
+
+/* Add hover animation */
+.blog-card:hover {
+  transform: translateY(-15px) scale(1.02);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+  animation: pulse 1s ease;  /* ← Add this line for hover animation */
+}
+
+
+
+.blog-image-container {
+  position: relative;
+  overflow: hidden;
+  height: 220px;
+}
+
+.blog-image {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+  transition: transform 0.5s ease;  /* ← Keep this for hover effect */
+}
+
+.blog-card:hover .blog-image {
+  transform: scale(1.1);  /* ← Keep this for zoom effect on hover */
+}
+
+.blog-card:hover .blog-image {
+  transform: scale(1.1);
+}
+
+.blog-category {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  padding: 8px 16px;
+  border-radius: 25px;
+  color: white;
+  font-weight: 600;
+  font-size: 0.85rem;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  z-index: 1;
+  animation: slideInRight 0.5s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.blog-content {
+  padding: 25px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
+}
+
+.blog-title {
+  margin: 0 0 10px 0;
+  font-size: 1.4rem;
+  color: #2C3E50;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.blog-author {
+  color: #7F8C8D;
+  font-size: 0.9rem;
+  margin-bottom: 15px;
+  font-style: italic;
+}
+
+.blog-preview {
+  color: #555;
+  line-height: 1.6;
+  margin-bottom: 20px;
+  flex: 1;
+  font-size: 0.95rem;
+}
+
+.blog-stats {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 20px;
+  color: #666;
+  font-size: 0.95rem;
+  padding: 10px 0;
+  border-top: 2px dashed #E0E0E0;
+  border-bottom: 2px dashed #E0E0E0;
+}
+
+.likes, .comments {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.3s ease;
+}
+
+.likes:hover {
+  color: #FF6B6B;
+  transform: scale(1.1);
+}
+
+.comments:hover {
+  color: #4ECDC4;
+  transform: scale(1.1);
+}
+
+.view-details-btn {
+  width: 100%;
+  margin-top: auto;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 50px;
+  padding: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  transition: all 0.3s ease;
+}
+
+.view-details-btn:hover {
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+  transform: scale(1.05);
+  box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+}
+/* Staggered animations for multiple posts */
+.posts-grid .blog-card:nth-child(1) {
+  animation: fadeInUp 0.6s ease-out 0.1s both;
+}
+
+.posts-grid .blog-card:nth-child(2) {
+  animation: fadeInUp 0.6s ease-out 0.2s both;
+}
+
+.posts-grid .blog-card:nth-child(3) {
+  animation: fadeInUp 0.6s ease-out 0.3s both;
+}
+
+.posts-grid .blog-card:nth-child(4) {
+  animation: fadeInUp 0.6s ease-out 0.4s both;
+}
+
+.posts-grid .blog-card:nth-child(5) {
+  animation: fadeInUp 0.6s ease-out 0.5s both;
+}
+
+.posts-grid .blog-card:nth-child(6) {
+  animation: fadeInUp 0.6s ease-out 0.6s both;
+}
+
+/* Optional: Add different animations for different positions */
+.posts-grid .blog-card:nth-child(odd) {
+  animation-name: slideInLeft;
+}
+
+.posts-grid .blog-card:nth-child(even) {
+  animation-name: slideInRight;
+}
+.likes {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.likes:hover {
+  color: #FF6B6B;
+  transform: scale(1.2) rotate(5deg);  /* ← Add rotation on hover */
+  animation: bounce 0.5s ease;  /* ← Add bounce on hover */
+}
+
+.likes:active {
+  animation: pulse 0.3s ease;  /* ← Add pulse on click */
+}
+.comments {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.comments:hover {
+  color: #4ECDC4;
+  transform: scale(1.2) rotate(-5deg);  /* ← Add rotation on hover */
+  animation: bounce 0.5s ease;  /* ← Add bounce on hover */
+}
+
+.comments:active {
+  animation: pulse 0.3s ease;  /* ← Add pulse on click */
+}
+.view-details-btn {
+  width: 100%;
+  margin-top: auto;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 50px;
+  padding: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Add shine effect on hover */
+.view-details-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  transition: left 0.5s ease;
+}
+
+.view-details-btn:hover::before {
+  left: 100%;  /* ← This creates the shine effect */
+}
+
+.view-details-btn:hover {
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+  transform: scale(1.05) translateY(-2px);
+  box-shadow: 0 10px 20px rgba(102,126,234,0.3);
+  animation: pulse 1s infinite;  /* ← Add infinite pulse on hover */
+}
+
+.view-details-btn:active {
+  transform: scale(0.95);  /* ← Add press effect */
+}
+.blog-category {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  padding: 8px 16px;
+  border-radius: 25px;
+  color: white;
+  font-weight: 600;
+  font-size: 0.85rem;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  z-index: 1;
+  animation: slideInRight 0.5s ease-out;  /* ← Add entrance animation */
+  transition: all 0.3s ease;
+}
+
+.blog-card:hover .blog-category {
+  animation: pulse 1s infinite;  /* ← Add pulse on card hover */
+  transform: scale(1.05);  /* ← Add scale on card hover */
+}
