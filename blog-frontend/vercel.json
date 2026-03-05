@@ -1,0 +1,6 @@
+{
+  "buildCommand": "npm ci --production=false && npm run build",
+  "outputDirectory": "build",
+  "devCommand": "npm start",
+  "installCommand": "npm ci --production=false"
+}
