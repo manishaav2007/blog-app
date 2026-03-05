@@ -10,14 +10,14 @@ app.use(cors());
 app.use(express.json());
 
 // 🔴 Replace with your real password
-mongoose.connect("mongodb+srv://manishaav2007_db_user:Manishaa123@cluster0.al3kuvg.mongodb.net/test?retryWrites=true&w=majority")
-.then(() => {
-    console.log("MongoDB Connected");
-})
-.catch((err) => {
-    console.log("MongoDB Connection Error:");
-    console.log(err);
-});
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => {
+      console.log("MongoDB Connected");
+  })
+  .catch((err) => {
+      console.log("MongoDB Connection Error:");
+      console.log(err);
+  });
 
 app.post("/posts", async (req, res) => {
   try {
