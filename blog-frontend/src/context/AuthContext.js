@@ -1,6 +1,8 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { posts as predefinedPosts } from '../data';
 
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+
 const AuthContext = createContext();
 
 export const useAuth = () => {
@@ -9,42 +11,30 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
+  const [authToken, setAuthToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const [allPosts, setAllPosts] = useState([]);
   const [deletedPosts, setDeletedPosts] = useState([]);
   const [resetRequests, setResetRequests] = useState([]);
 
   useEffect(() => {
-    // Load initial data
+    // Load initial auth data
     const user = localStorage.getItem('user');
     if (user) {
       setCurrentUser(JSON.parse(user));
     }
-    
-    // Initialize posts in localStorage if not exists
-    initializePosts();
-    
-    // Load posts and deleted posts
-    loadPosts();
+    const storedToken = localStorage.getItem('authToken');
+    if (storedToken) {
+      setAuthToken(storedToken);
+    }
+
+    // Load deleted posts and reset requests (local-only demo features)
     loadDeletedPosts();
     loadResetRequests();
-    
-    setLoading(false);
+
+    // Fetch posts from API on startup (ignore errors, we'll fall back later)
+    fetchPostsFromApi().finally(() => setLoading(false));
   }, []);
-
-  const initializePosts = () => {
-    // Check if posts exist in localStorage
-    const existingPosts = localStorage.getItem('allPosts');
-    if (!existingPosts) {
-      // If not, save predefined posts to localStorage
-      localStorage.setItem('allPosts', JSON.stringify(predefinedPosts));
-    }
-  };
-
-  const loadPosts = () => {
-    const posts = JSON.parse(localStorage.getItem('allPosts') || '[]');
-    setAllPosts(posts);
-  };
 
   const loadDeletedPosts = () => {
     const deleted = JSON.parse(localStorage.getItem('deletedPosts') || '[]');
@@ -66,62 +56,95 @@ export const AuthProvider = ({ children }) => {
     return errors;
   };
 
-  const signup = (email, password, name) => {
-    // Validate password
+  const signup = async (email, password, name) => {
+    // Validate password on the client too
     const passwordErrors = validatePassword(password);
     if (passwordErrors.length > 0) {
       throw new Error("Password does not meet requirements");
     }
 
-    // Check if user already exists
-    const existingUsers = JSON.parse(localStorage.getItem('users') || '[]');
-    const userExists = existingUsers.find(u => u.email === email);
-    
-    if (userExists) {
-      throw new Error("User already exists");
+    // Call backend API to register user
+    const response = await fetch(`${API_URL}/auth/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        username: name,
+        email,
+        password
+      })
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to create account');
     }
 
-    // Create new user
-    const newUser = { 
-      email, 
-      name, 
-      password,
-      createdAt: new Date().toISOString(),
-      posts: []
+    const userForSession = {
+      id: data.user?.id,
+      email: data.user?.email || email,
+      name: data.user?.username || name,
+      profilePic: data.user?.profilePic || ''
     };
-    
-    existingUsers.push(newUser);
-    localStorage.setItem('users', JSON.stringify(existingUsers));
-    
-    // Store user without password for current session
-    const userForSession = { email, name };
+
+    // Store token and user in localStorage
+    if (data.token) {
+      localStorage.setItem('authToken', data.token);
+      setAuthToken(data.token);
+    }
     localStorage.setItem('user', JSON.stringify(userForSession));
     setCurrentUser(userForSession);
-    
+
+    // Optional: keep a simple users list in localStorage to support
+    // the existing password reset flow in this demo app.
+    const existingUsers = JSON.parse(localStorage.getItem('users') || '[]');
+    const userExists = existingUsers.find(u => u.email === email);
+    if (!userExists) {
+      existingUsers.push({
+        email,
+        name: userForSession.name,
+        password,
+        createdAt: new Date().toISOString(),
+        posts: []
+      });
+      localStorage.setItem('users', JSON.stringify(existingUsers));
+    }
+
     return userForSession;
   };
 
-  const login = (email, password) => {
-    // Get users from localStorage
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    
-    // Find user
-    const user = users.find(u => u.email === email);
-    
-    if (!user) {
-      throw new Error("User not found");
+  const login = async (email, password) => {
+    const response = await fetch(`${API_URL}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email, password })
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to login');
     }
-    
-    // Check password
-    if (user.password !== password) {
-      throw new Error("Incorrect password");
+
+    const userForSession = {
+      id: data.user?.id,
+      email: data.user?.email || email,
+      name: data.user?.username || '',
+      profilePic: data.user?.profilePic || ''
+    };
+
+    if (data.token) {
+      localStorage.setItem('authToken', data.token);
+      setAuthToken(data.token);
     }
-    
-    // Store user for session
-    const userForSession = { email, name: user.name };
+
     localStorage.setItem('user', JSON.stringify(userForSession));
     setCurrentUser(userForSession);
-    
+
     return userForSession;
   };
 
@@ -221,82 +244,119 @@ export const AuthProvider = ({ children }) => {
     return true;
   };
 
+  // Map a backend Post document into the shape used by the frontend
+  const mapPostFromApi = (post) => {
+    if (!post) return null;
+
+    const createdAt = post.createdAt || new Date().toISOString();
+
+    return {
+      id: post._id,
+      title: post.title,
+      content: post.content,
+      category: post.category || 'Campus Life',
+      image: post.image || '',
+      author: post.author?.username || 'Unknown',
+      authorEmail: post.author?.email || '',
+      date: new Date(createdAt).toISOString().split('T')[0],
+      likes: post.likeCount || 0,
+      comments: [], // comments are loaded separately in PostDetails
+    };
+  };
+
+  // Fetch all posts from backend API
+  const fetchPostsFromApi = async () => {
+    try {
+      const response = await fetch(`${API_URL}/posts`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch posts');
+      }
+      const data = await response.json();
+      const mapped = data.map(mapPostFromApi);
+      // Sort newest first
+      mapped.sort((a, b) => new Date(b.date) - new Date(a.date));
+      setAllPosts(mapped);
+      return mapped;
+    } catch (err) {
+      console.error('Error fetching posts from API:', err);
+      // Fallback to predefined demo posts if API fails
+      setAllPosts(predefinedPosts);
+      return predefinedPosts;
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem('user');
+    localStorage.removeItem('authToken');
     setCurrentUser(null);
+    setAuthToken(null);
   };
 
-  // Function to add a new post
-  const addPost = (post) => {
-    const newPost = {
-      ...post,
-      id: Date.now(), // Unique ID
-      likes: 0,
-      comments: [],
-      authorEmail: currentUser?.email
-    };
+  // Function to add a new post (calls backend)
+  const addPost = async (post) => {
+    if (!authToken) {
+      throw new Error('You must be logged in to create a post');
+    }
 
-    // Get existing posts
-    const existingPosts = JSON.parse(localStorage.getItem('allPosts') || '[]');
-    
-    // Add new post to the beginning of the array
-    const updatedPosts = [newPost, ...existingPosts];
-    
-    // Save to localStorage
-    localStorage.setItem('allPosts', JSON.stringify(updatedPosts));
-    setAllPosts(updatedPosts);
-    
-    // Also save to user's posts
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const updatedUsers = users.map(user => {
-      if (user.email === currentUser?.email) {
-        return {
-          ...user,
-          posts: [...(user.posts || []), newPost.id]
-        };
-      }
-      return user;
+    const response = await fetch(`${API_URL}/posts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${authToken}`,
+      },
+      body: JSON.stringify({
+        title: post.title,
+        content: post.content,
+        category: post.category,
+        image: post.image,
+      }),
     });
-    localStorage.setItem('users', JSON.stringify(updatedUsers));
-    
-    return newPost;
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to create post');
+    }
+
+    const mapped = mapPostFromApi(data);
+    setAllPosts((prev) => [mapped, ...prev]);
+    return mapped;
   };
 
-  // Function to delete a post
-  const deletePost = (postId) => {
-    // Find the post to delete
-    const postToDelete = allPosts.find(p => p.id === postId || p.id === parseInt(postId));
-    
+  // Function to delete a post (calls backend, keeps local deleted history)
+  const deletePost = async (postId) => {
+    if (!authToken) {
+      throw new Error('You must be logged in to delete a post');
+    }
+
+    const postToDelete = allPosts.find((p) => p.id === postId || p.id === String(postId));
     if (!postToDelete) return;
 
-    // Add to deleted posts history with timestamp
+    const response = await fetch(`${API_URL}/posts/${postId}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+      },
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to delete post');
+    }
+
+    // Add to deleted posts history with timestamp (local-only feature)
     const deletedPostWithMeta = {
       ...postToDelete,
       deletedAt: new Date().toISOString(),
-      deletedBy: currentUser?.email
+      deletedBy: currentUser?.email,
     };
 
     const updatedDeletedPosts = [deletedPostWithMeta, ...deletedPosts];
     localStorage.setItem('deletedPosts', JSON.stringify(updatedDeletedPosts));
     setDeletedPosts(updatedDeletedPosts);
 
-    // Remove from all posts
-    const updatedPosts = allPosts.filter(p => p.id !== postId && p.id !== parseInt(postId));
-    localStorage.setItem('allPosts', JSON.stringify(updatedPosts));
+    const updatedPosts = allPosts.filter((p) => p.id !== postId && p.id !== String(postId));
     setAllPosts(updatedPosts);
-
-    // Remove from user's posts in users array
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const updatedUsers = users.map(user => {
-      if (user.email === currentUser?.email) {
-        return {
-          ...user,
-          posts: (user.posts || []).filter(id => id !== postId && id !== parseInt(postId))
-        };
-      }
-      return user;
-    });
-    localStorage.setItem('users', JSON.stringify(updatedUsers));
 
     return postToDelete;
   };
@@ -320,88 +380,61 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('deletedPosts', JSON.stringify(updatedDeletedPosts));
     setDeletedPosts(updatedDeletedPosts);
 
-    // Add back to all posts
-    const updatedPosts = [cleanPost, ...allPosts];
-    localStorage.setItem('allPosts', JSON.stringify(updatedPosts));
-    setAllPosts(updatedPosts);
-
-    // Add back to user's posts
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const updatedUsers = users.map(user => {
-      if (user.email === cleanPost.authorEmail) {
-        return {
-          ...user,
-          posts: [...(user.posts || []), cleanPost.id]
-        };
-      }
-      return user;
-    });
-    localStorage.setItem('users', JSON.stringify(updatedUsers));
-
     return cleanPost;
   };
 
-  // Function to get all posts (predefined + user posts)
-  const getPosts = () => {
-    const posts = JSON.parse(localStorage.getItem('allPosts') || '[]');
-    
-    // If no posts in localStorage, return predefined posts
-    if (posts.length === 0) {
-      return predefinedPosts;
+  // Function to get all posts (from API, cached in state)
+  const getPosts = async () => {
+    if (allPosts.length > 0) {
+      return allPosts;
     }
-    
-    // Merge with predefined posts to ensure they're always there
-    const allPredefinedIds = predefinedPosts.map(p => p.id);
-    const existingIds = posts.map(p => p.id);
-    
-    // Add any missing predefined posts
-    const missingPredefined = predefinedPosts.filter(p => !existingIds.includes(p.id));
-    
-    if (missingPredefined.length > 0) {
-      const mergedPosts = [...posts, ...missingPredefined];
-      // Sort by date (newest first)
-      mergedPosts.sort((a, b) => new Date(b.date) - new Date(a.date));
-      localStorage.setItem('allPosts', JSON.stringify(mergedPosts));
-      return mergedPosts;
-    }
-    
-    // Sort by date (newest first)
-    posts.sort((a, b) => new Date(b.date) - new Date(a.date));
-    return posts;
+    return fetchPostsFromApi();
   };
 
   // Function to get user's posts
-  const getUserPosts = (userEmail) => {
-    const allPosts = JSON.parse(localStorage.getItem('allPosts') || '[]');
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const user = users.find(u => u.email === userEmail);
-    
-    if (!user) return [];
-    
-    // Get posts by this user (either by authorEmail or by name)
-    return allPosts.filter(post => 
-      post.authorEmail === userEmail || 
-      post.author === user.name
+  const getUserPosts = async (userEmail) => {
+    const posts = await getPosts();
+    if (!userEmail) return [];
+    return posts.filter(
+      (post) => post.authorEmail === userEmail || post.author === currentUser?.name
     );
   };
 
   // Function to get a single post by ID
-  const getPostById = (postId) => {
-    const allPosts = JSON.parse(localStorage.getItem('allPosts') || '[]');
-    return allPosts.find(p => p.id === parseInt(postId) || p.id === postId);
+  const getPostById = async (postId) => {
+    // Try from cache first
+    const fromCache = allPosts.find(
+      (p) => p.id === postId || p.id === String(postId)
+    );
+    if (fromCache) return fromCache;
+
+    try {
+      const response = await fetch(`${API_URL}/posts/${postId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch post');
+      }
+      const data = await response.json();
+      const mapped = mapPostFromApi(data);
+      setAllPosts((prev) => {
+        const exists = prev.some((p) => p.id === mapped.id);
+        return exists ? prev : [mapped, ...prev];
+      });
+      return mapped;
+    } catch (err) {
+      console.error('Error fetching post by id:', err);
+      return null;
+    }
   };
 
-  // Function to update post (for likes/comments)
+  // Function to update post in local cache (e.g. like count)
   const updatePost = (postId, updates) => {
-    const allPosts = JSON.parse(localStorage.getItem('allPosts') || '[]');
-    const updatedPosts = allPosts.map(post => 
-      (post.id === parseInt(postId) || post.id === postId) 
-        ? { ...post, ...updates } 
-        : post
+    setAllPosts((prev) =>
+      prev.map((post) =>
+        post.id === postId || post.id === String(postId)
+          ? { ...post, ...updates }
+          : post
+      )
     );
-    localStorage.setItem('allPosts', JSON.stringify(updatedPosts));
-    setAllPosts(updatedPosts);
-    return updatedPosts.find(p => p.id === postId || p.id === parseInt(postId));
   };
 
   // Function to get deleted posts history
@@ -411,6 +444,7 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     currentUser,
+    authToken,
     signup,
     login,
     logout,

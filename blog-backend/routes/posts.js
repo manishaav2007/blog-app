@@ -9,7 +9,7 @@ const auth = require('../middleware/auth');
 router.get('/', async (req, res) => {
   try {
     const posts = await Post.find()
-      .populate('author', 'username profilePic')
+      .populate('author', 'username email profilePic')
       .populate('likes', 'username')
       .sort({ createdAt: -1 });
     res.json(posts);
@@ -18,19 +18,38 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET single post by ID (public)
+router.get('/:id', async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id)
+      .populate('author', 'username email profilePic')
+      .populate('likes', 'username');
+
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    res.json(post);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // CREATE post (authenticated)
 router.post('/', auth, async (req, res) => {
   try {
-    const { title, content } = req.body;
+    const { title, content, category, image } = req.body;
     const post = new Post({
       title,
       content,
+      category: category || 'Campus Life',
+      image: image || '',
       author: req.userId
     });
     await post.save();
     
     const populatedPost = await Post.findById(post._id)
-      .populate('author', 'username profilePic');
+      .populate('author', 'username email profilePic');
     
     res.status(201).json(populatedPost);
   } catch (err) {
@@ -52,7 +71,7 @@ router.post('/:id/like', auth, async (req, res) => {
     if (hasLiked) {
       // Unlike
       post.likes = post.likes.filter(id => id.toString() !== req.userId);
-      post.likeCount -= 1;
+      post.likeCount = Math.max(0, post.likeCount - 1);
     } else {
       // Like
       post.likes.push(req.userId);
@@ -72,6 +91,26 @@ router.post('/:id/like', auth, async (req, res) => {
     
     await post.save();
     res.json({ likeCount: post.likeCount, liked: !hasLiked });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// DELETE post (only author)
+router.delete('/:id', auth, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    if (post.author.toString() !== req.userId) {
+      return res.status(403).json({ error: 'Not authorized to delete this post' });
+    }
+
+    await post.deleteOne();
+    res.json({ message: 'Post deleted' });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

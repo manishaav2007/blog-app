@@ -56,11 +56,11 @@ const Profile = () => {
     loadDeletedPosts();
   }, [currentUser, navigate]);
 
-  const loadUserData = () => {
+  const loadUserData = async () => {
     setLoading(true);
     try {
-      // Load user's posts
-      const posts = getUserPosts(currentUser.email);
+      // Load user's posts from backend (via context helper)
+      const posts = await getUserPosts(currentUser.email);
       setUserPosts(posts);
       setFilteredPosts(posts);
 

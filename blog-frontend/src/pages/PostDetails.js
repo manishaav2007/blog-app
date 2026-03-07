@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { posts } from '../data';
 import './PostDetails.css';
 
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 const PostDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const { currentUser, authToken, getPostById } = useAuth();
   const [post, setPost] = useState(null);
   const [newComment, setNewComment] = useState('');
   const [comments, setComments] = useState([]);
   const [likes, setLikes] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [submittingComment, setSubmittingComment] = useState(false);
 
   useEffect(() => {
     if (!currentUser) {
@@ -20,34 +22,90 @@ const PostDetails = () => {
       return;
     }
 
-    const foundPost = posts.find(p => p.id === parseInt(id));
-    if (foundPost) {
-      setPost(foundPost);
-      setComments(foundPost.comments);
-      setLikes(foundPost.likes);
-    }
-  }, [id, currentUser, navigate]);
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        // Load post details (from cache or API via context)
+        const loadedPost = await getPostById(id);
+        if (loadedPost) {
+          setPost(loadedPost);
+          setLikes(loadedPost.likes || 0);
+        }
 
-  const handleLike = () => {
-    setLikes(prev => prev + 1);
-  };
-
-  const handleCommentSubmit = (e) => {
-    e.preventDefault();
-    if (!newComment.trim()) return;
-
-    const comment = {
-      id: comments.length + 1,
-      user: currentUser.name,
-      text: newComment,
-      date: new Date().toISOString().split('T')[0]
+        // Load comments from backend
+        const res = await fetch(`${API_URL}/comments/post/${id}`);
+        if (res.ok) {
+          const data = await res.json();
+          const mappedComments = data.map((c) => ({
+            id: c._id,
+            user: c.author?.username || 'Anonymous',
+            text: c.content,
+            date: new Date(c.createdAt || new Date()).toISOString().split('T')[0],
+          }));
+          setComments(mappedComments);
+        }
+      } catch (error) {
+        console.error('Error loading post details:', error);
+      } finally {
+        setLoading(false);
+      }
     };
 
-    setComments([...comments, comment]);
-    setNewComment('');
+    loadData();
+  }, [id, currentUser, navigate, getPostById]);
+
+  const handleLike = async () => {
+    if (!authToken) return;
+    try {
+      const res = await fetch(`${API_URL}/posts/${id}/like`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setLikes(data.likeCount);
+      }
+    } catch (error) {
+      console.error('Error liking post:', error);
+    }
   };
 
-  if (!post) {
+  const handleCommentSubmit = async (e) => {
+    e.preventDefault();
+    if (!newComment.trim() || !authToken) return;
+
+    setSubmittingComment(true);
+    try {
+      const res = await fetch(`${API_URL}/comments/post/${id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ content: newComment }),
+      });
+
+      if (res.ok) {
+        const c = await res.json();
+        const mapped = {
+          id: c._id,
+          user: c.author?.username || currentUser.name,
+          text: c.content,
+          date: new Date(c.createdAt || new Date()).toISOString().split('T')[0],
+        };
+        setComments((prev) => [...prev, mapped]);
+        setNewComment('');
+      }
+    } catch (error) {
+      console.error('Error posting comment:', error);
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
+  if (loading || !post) {
     return <div className="loading">Loading...</div>;
   }
 
@@ -86,8 +144,8 @@ const PostDetails = () => {
               className="comment-input"
               rows="3"
             />
-            <button type="submit" className="btn btn-primary comment-submit-btn">
-              Post Comment
+            <button type="submit" className="btn btn-primary comment-submit-btn" disabled={submittingComment}>
+              {submittingComment ? 'Posting...' : 'Post Comment'}
             </button>
           </form>
 

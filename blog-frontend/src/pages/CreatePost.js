@@ -253,7 +253,7 @@ If you're going through something similar, know that [encouraging message]. I've
     return completedTips.includes(tipId) ? 100 : 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!validateForm()) {
@@ -262,7 +262,7 @@ If you're going through something similar, know that [encouraging message]. I've
 
     setIsSubmitting(true);
     
-    // Create new post object
+    // Create new post object (context will send the relevant fields to backend)
     const newPost = {
       title: formData.title,
       content: formData.content,
@@ -274,12 +274,16 @@ If you're going through something similar, know that [encouraging message]. I've
       comments: []
     };
 
-    // Add post using context
-    addPost(newPost);
-    
-    // Show success message
-    alert('✨ Post created successfully!');
-    navigate('/');
+    try {
+      await addPost(newPost);
+      alert('✨ Post created successfully!');
+      navigate('/');
+    } catch (error) {
+      console.error('Error creating post:', error);
+      alert(error.message || 'Failed to create post. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getRandomImage = () => {

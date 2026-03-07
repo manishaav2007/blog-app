@@ -9,6 +9,14 @@ const PostSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  category: {
+    type: String,
+    default: 'Campus Life'
+  },
+  image: {
+    type: String,
+    default: ''
+  },
   author: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

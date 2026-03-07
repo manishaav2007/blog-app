@@ -76,7 +76,7 @@ const Login = () => {
     return newErrors;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     const formErrors = validateForm();
@@ -90,12 +90,11 @@ const Login = () => {
 
     try {
       if (isLogin) {
-        login(email, password);
-        navigate(from, { replace: true });
+        await login(email, password);
       } else {
-        signup(email, password, name);
-        navigate(from, { replace: true });
+        await signup(email, password, name);
       }
+      navigate(from, { replace: true });
     } catch (err) {
       setErrors({ form: err.message });
     } finally {

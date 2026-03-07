@@ -54,14 +54,14 @@ const Home = () => {
     }
   }, [posts, selectedCategory, searchQuery]);
 
-  const loadPosts = () => {
+  const loadPosts = async () => {
     setLoading(true);
     try {
-      // Get all posts (predefined + user posts)
-      const allPosts = getPosts();
+      // Get all posts from backend (with fallback handled in context)
+      const allPosts = await getPosts();
       
       // Sort by date (newest first)
-      const sortedPosts = allPosts.sort((a, b) => new Date(b.date) - new Date(a.date));
+      const sortedPosts = [...allPosts].sort((a, b) => new Date(b.date) - new Date(a.date));
       
       setPosts(sortedPosts);
     } catch (error) {
